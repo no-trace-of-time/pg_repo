@@ -15,4 +15,3 @@
 %% callbacks
 -callback field_pr_formatter(Field :: atom()) -> list().
 -callback get(Repo :: tuple(), Key :: atom()) -> any().
--callback get(Repo :: tuple(), Key :: atom(), Default :: any()) -> any().

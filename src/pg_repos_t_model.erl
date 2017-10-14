@@ -22,7 +22,6 @@
 -export([
   field_pr_formatter/1
   , get/2
-  , get/3
 ]).
 
 -compile(export_all).
@@ -49,6 +48,7 @@
   , quota = [{txn, -1}, {daily, -1}, {monthly, -1}] :: list()
   , up_term_no = <<"12345678">> :: binary()
   , update_ts = erlang:timestamp() :: ts()
+  , field
 }).
 -type ?TXN() :: #?TXN{}.
 -export_type([?TXN/0]).
@@ -79,8 +79,6 @@ get(Repo, aa) when is_record(Repo, ?TXN) ->
 get(Repo, Key) when is_record(Repo, ?TXN), is_atom(Key) ->
   pg_repos:get_in(?MODULE, Repo, Key).
 
-get(Repo, Key, Default) ->
-  pg_repos:get_in(?MODULE, Repo, Key, Default).
 
 %%-----------------------------------------------------------
 field_pr_formatter(Field)

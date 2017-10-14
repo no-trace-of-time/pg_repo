@@ -55,7 +55,8 @@ fields(M) when is_atom(M) ->
 
 fields_test() ->
   ?assertEqual([id, mcht_full_name, mcht_short_name, status
-    , payment_method, up_mcht_id, quota, up_term_no, update_ts]
+    , payment_method, up_mcht_id, quota, up_term_no, update_ts
+    , field]
     , fields(?TEST_MODEL)),
   ok.
 %%-----------------------------------------------------------------
@@ -67,7 +68,8 @@ new_empty_test() ->
   A = new_empty(?TEST_REPO),
   TS = get_in(?TEST_REPO, A, update_ts),
   ?assertEqual({?TEST_REPO_TBL, 0, <<"">>, <<"">>, normal, [gw_netbank], <<"">>,
-    [{txn, -1}, {daily, -1}, {monthly, -1}], <<"12345678">>, TS}
+    [{txn, -1}, {daily, -1}, {monthly, -1}], <<"12345678">>, TS,
+    undefined}
     , A),
   ok.
 
@@ -82,7 +84,7 @@ new(M, Map) when is_atom(M), is_map(Map) ->
   new(M, List).
 
 new_test() ->
-  ?assertEqual(new(?TEST_REPO, [{id, 1}, {mcht_full_name, <<"aaa">>}, {update_ts, <<>>}])
+  ?assertEqual(new(?TEST_REPO, [{id, 1}, {mcht_full_name, <<"aaa">>}, {update_ts, <<>>}, {field, undefined}])
     , new(?TEST_REPO, #{id=>1, mcht_full_name=><<"aaa">>, update_ts => <<>>})),
   ok.
 
@@ -115,11 +117,15 @@ get(M, Repo, Key) when is_atom(M), is_tuple(Repo), is_atom(Key) ->
   M:get(Repo, Key).
 
 get(M, Repo, Key, Default) when is_atom(M), is_tuple(Repo), is_atom(Key) ->
-  M:get(Repo, Key, Default).
+  case get(M, Repo, Key) of
+    undefined -> Default;
+    Value -> Value
+  end.
 
 get_test() ->
   R = new_test(model),
   ?assertEqual({1, <<"full">>}, get(?TEST_MODEL, R, aa)),
+  ?assertEqual(100, get(?TEST_MODEL, R, field, 100)),
   ok.
 %%-------------------------------------------------------------------
 set(_M, _Repo, id, _Value) ->
@@ -200,6 +206,7 @@ to_proplists_test() ->
       , {quota, [{txn, -1}, {daily, -1}, {monthly, -1}]}
       , {up_term_no, <<"12345678">>}
       , {update_ts, 100}
+      , {field, undefined}
     ]
     , to_proplists(?TEST_MODEL, R)),
   ok.
@@ -216,6 +223,7 @@ to_map_test() ->
       , status=>normal, payment_method =>[gw_netbank]
       , up_mcht_id=><<>>, quota=>[{txn, -1}, {daily, -1}, {monthly, -1}]
       , up_term_no=> <<"12345678">>, update_ts => 100
+      , field => undefined
     }
     , to_map(?TEST_MODEL, R)),
   ok.
@@ -251,6 +259,7 @@ to_model_test() ->
       , status=>normal, payment_method =>[gw_netbank]
       , up_mcht_id=><<>>, quota=>[{txn, -1}, {daily, -1}, {monthly, -1}]
       , up_term_no=> <<"12345678">>, update_ts => 100
+      , field=> undefined
     }
     , to_model(?TEST_MODEL, R)),
   ?assertEqual(
@@ -259,12 +268,14 @@ to_model_test() ->
         , status=>normal, payment_method =>[gw_netbank]
         , up_mcht_id=><<>>, quota=>[{txn, -1}, {daily, -1}, {monthly, -1}]
         , up_term_no=> <<"12345678">>, update_ts => 100
+        , field=> undefined
       }
       ,
       #{id=>1, mcht_full_name=><<"full">>, mcht_short_name=><<"short">>
         , status=>normal, payment_method =>[gw_netbank]
         , up_mcht_id=><<>>, quota=>[{txn, -1}, {daily, -1}, {monthly, -1}]
         , up_term_no=> <<"12345678">>, update_ts => 101
+        , field=> undefined
       }
     ], to_model(?TEST_MODEL, [R, R1])),
   ok.
@@ -310,13 +321,13 @@ pr_test() ->
 
   Out = pr(?TEST_MODEL, R),
   OutTrim = trim_pretty(Out),
-  Expected = <<"id=1,mcht_full_name=full,mcht_short_name=short,status=normal,payment_method=[gw_netbank],up_mcht_id=<<>>,quota=[{txn,-1},{daily,-1},{monthly,-1}],up_term_no=<<\"12345678\">>,update_ts=100,">>,
+  Expected = <<"id=1,mcht_full_name=full,mcht_short_name=short,status=normal,payment_method=[gw_netbank],up_mcht_id=<<>>,quota=[{txn,-1},{daily,-1},{monthly,-1}],up_term_no=<<\"12345678\">>,update_ts=100,field=undefined,">>,
 
   [E] = io_lib:format("~ts", [Expected]),
   ?assertEqual(E, OutTrim),
 
   R1 = set(?TEST_MODEL, R, mcht_full_name, <<"测试"/utf8>>),
-  Exp2 = <<"id=1,mcht_full_name=测试,mcht_short_name=short,status=normal,payment_method=[gw_netbank],up_mcht_id=<<>>,quota=[{txn,-1},{daily,-1},{monthly,-1}],up_term_no=<<\"12345678\">>,update_ts=100,"/utf8>>,
+  Exp2 = <<"id=1,mcht_full_name=测试,mcht_short_name=short,status=normal,payment_method=[gw_netbank],up_mcht_id=<<>>,quota=[{txn,-1},{daily,-1},{monthly,-1}],up_term_no=<<\"12345678\">>,update_ts=100,field=undefined,"/utf8>>,
   [E2] = io_lib:format("~ts", [Exp2]),
   ?assertEqual(E2, trim_pretty(pr(?TEST_MODEL, R1))),
 
