@@ -193,7 +193,7 @@ clean_up_record_list_test() ->
     {mcht_full_name, <<230, 152, 147, 229, 174, 182, 229, 129, 165, 229, 186, 183, 229, 133, 172, 229, 143, 184>>},
     {mcht_short_name, <<230, 152, 147, 229, 174, 182, 229, 129, 165, 229, 186, 183>>}, {mcht_full_name, <<>>}],
 
-  ?assertEqual(RecExpected, lists:reverse(clean_up_record_list(pg_repos_t_repo_mchants_pt, Rec))).
+  ?assertEqual(RecExpected, lists:reverse(clean_up_record_list(pg_repos_t_repo, Rec))).
 
 kv_clean_record_only({K, V}, Fields) when is_list(Fields) ->
   case lists:member(K, Fields) of
