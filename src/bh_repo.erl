@@ -16,8 +16,6 @@
 
 %% callbacks
 -callback table_config() -> map().
--callback get(Repo :: tuple(), Key :: atom()) -> any().
--callback get(Repo :: tuple(), Key :: atom(), Default :: any()) -> any().
 
 
 %% api

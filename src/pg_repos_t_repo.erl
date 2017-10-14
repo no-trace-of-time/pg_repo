@@ -17,12 +17,12 @@
 -export([
   %% table define related
   table_config/0
-  , get/2
-  , get/3
 ]).
 
 -export([
   field_pr_formatter/1
+  , get/2
+  , get/3
 ]).
 
 -compile(export_all).
