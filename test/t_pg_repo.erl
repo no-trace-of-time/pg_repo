@@ -25,8 +25,8 @@ cleanup(_Pid) ->
 
 setup() ->
   lager:start(),
-  os:cmd("mkdir -p /tmp/mnesia_test"),
-  application:set_env(mnesia, dir, "/tmp/mnesia_test"),
+  os:cmd("mkdir ./mnesia_test"),
+  application:set_env(mnesia, dir, "/tmp"),
 
   application:start(mnesia),
 
