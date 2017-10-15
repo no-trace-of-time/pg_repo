@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 23. Dec 2016 10:58 PM
 %%%-------------------------------------------------------------------
--module(bh_repo).
+-module(pg_repo).
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 -author("simon").
@@ -28,12 +28,15 @@
 
   , create_pk/3
   , create/3
+
   , read/2
   , read_index/2
   , read_index/3
+
   , save/1
   , save/2
   , save/3
+
   , update/3
   , update_create/3
   , update_pk/3
@@ -67,7 +70,8 @@
   , load_all_from_file/1
 
   %%
-  , drop_table/1
+  , drop/1
+
 
   %%
   , transfer_history_log/2
@@ -89,8 +93,12 @@ save(Repo) when is_tuple(Repo) ->
   lager:debug("Write ~p to mnesia successful!", [Repo]),
   ok.
 
+save(M, Repo) when is_atom(M), is_tuple(Repo) ->
+  ModelName = pg_model:name(M),
+  ModelName = element(1, Repo),
+  save(Repo);
 save(M, Model) when is_atom(M), is_map(Model) ->
-  Repo = pg_repos:from_model(M, Model),
+  Repo = pg_model:from(M, Model),
   save(Repo);
 save(Repo, [sync]) when is_tuple(Repo) ->
   F = fun
@@ -108,9 +116,12 @@ save(Repo, [dirty]) when is_tuple(Repo) ->
   ok.
 
 
+save(M, Repo, Options) when is_atom(M), is_tuple(Repo), is_list(Options) ->
+  ModelName = pg_model:name(M),
+  ModelName = element(1, Repo),
+  save(Repo, Options);
 save(M, Model, Options) when is_atom(M), is_map(Model), is_list(Options) ->
-  Repo = pg_repos:from_model(M, Model),
-  save(Repo, Options).
+  save(M, pg_model:from(M, Model), Options).
 
 %%-------------------------------------------------------------------
 delete(Repo) when is_tuple(Repo) ->
@@ -118,7 +129,7 @@ delete(Repo) when is_tuple(Repo) ->
   ok.
 
 delete(M, PK) when is_atom(M) ->
-  TableName = pg_repos:table_name(M),
+  TableName = pg_model:name(M),
   ok = mnesia:dirty_delete(TableName, PK),
   ok.
 
@@ -142,11 +153,11 @@ get_next_id(_, false) ->
 get_next_id(M, true) ->
   %% get next id from table pk=id
   IdList = all_pks(M),
-  NextID = pg_repos:next_id(IdList),
+  NextID = next_id(IdList),
   NextID.
 
 all_pks(M) ->
-  TableName = pg_repos:table_name(M),
+  TableName = pg_model:name(M),
   PKList = mnesia:dirty_all_keys(TableName),
   PKList.
 
@@ -159,7 +170,7 @@ table_config_pk(M) when is_atom(M) ->
   table_config(pk_key_name, M).
 %%-------------------------------------------------------------------
 clean_up_record_list(M, List) when is_atom(M), is_list(List) ->
-  RecFields = pg_repos:fields(M),
+  RecFields = pg_model:fields(M),
   AtomFields = [payment_method, status],
   TSFields = [update_ts, last_login_ts, last_update_ts],
 
@@ -181,17 +192,6 @@ clean_up_record_list(M, List) when is_atom(M), is_list(List) ->
 
   lists:foldl(F, [], List).
 
-clean_up_record_list_test() ->
-  Rec = [{id, 1}, {payment_method, [<<"gw_netbank">>]}, {status, <<"normal">>}, {up_mcht_id, <<"898350273922385">>},
-    {update_ts, <<"2016-12-25T21:25:04.012503 +08:00">>}, {date, <<"2016/11/12">>},
-    {mcht_full_name, <<230, 152, 147, 229, 174, 182, 229, 129, 165, 229, 186, 183, 229, 133, 172, 229, 143, 184>>},
-    {mcht_short_name, <<230, 152, 147, 229, 174, 182, 229, 129, 165, 229, 186, 183>>}, {mcht_full_name, <<>>}],
-  RecExpected = [{id, 1}, {payment_method, [gw_netbank]}, {status, normal}, {up_mcht_id, <<"898350273922385">>},
-    {update_ts, {1482, 672304, 12503}},
-    {mcht_full_name, <<230, 152, 147, 229, 174, 182, 229, 129, 165, 229, 186, 183, 229, 133, 172, 229, 143, 184>>},
-    {mcht_short_name, <<230, 152, 147, 229, 174, 182, 229, 129, 165, 229, 186, 183>>}, {mcht_full_name, <<>>}],
-
-  ?assertEqual(RecExpected, lists:reverse(clean_up_record_list(pg_repos_t_repo, Rec))).
 
 kv_clean_record_only({K, V}, Fields) when is_list(Fields) ->
   case lists:member(K, Fields) of
@@ -284,14 +284,14 @@ clean_up_value_list_pk(M, ValueList) when is_atom(M), is_list(ValueList) ->
 
 
 %%-------------------------------------------------------------------
-drop_table(M) when is_atom(M) ->
-  TableName = pg_repos:table_name(M),
+drop(M) when is_atom(M) ->
+  TableName = pg_model:name(M),
   mnesia:delete_table(TableName).
 %%-------------------------------------------------------------------
 init(M) ->
   %% table init
-  TableName = pg_repos:table_name(M),
-  Fields = pg_repos:fields(M),
+  TableName = pg_model:name(M),
+  Fields = pg_model:fields(M),
 
   TableResidentOption = table_resident_option(M),
 
@@ -318,14 +318,14 @@ init(M) ->
 
 drop_index(M) when is_atom(M) ->
   %% index init
-  TableName = pg_repos:table_name(M),
+  TableName = pg_model:name(M),
   Indexs = table_config(table_indexes, M),
   [idx_drop(TableName, FieldName) || FieldName <- Indexs],
   ok.
 
 create_index(M) when is_atom(M) ->
   %% index init
-  TableName = pg_repos:table_name(M),
+  TableName = pg_model:name(M),
   Indexs = table_config(table_indexes, M),
   [idx_init(TableName, FieldName) || FieldName <- Indexs],
   ok.
@@ -367,7 +367,7 @@ table_resident_option(M) when is_atom(M) ->
 
 %% create with index name, pk must be integer sequence
 create(M, {IndexName, IndexValue}, AttributesMap)
-  when is_map(AttributesMap) ->
+  when is_atom(M), is_atom(IndexName), is_map(AttributesMap) ->
   List = maps:to_list(AttributesMap),
   create(M, {IndexName, IndexValue}, List);
 
@@ -386,7 +386,7 @@ do_create(M, false, {IndexName, IndexValue}, Attributes) ->
   ValueList = [PKAndName | AttributesWithoutIndexName] ++ [{IndexName, IndexValue}],
   ValueListClean = clean_up_record_list(M, ValueList),
   lager:debug("ValueList for new record = ~p", [ValueListClean]),
-  Repo = pg_repos:new(M, ValueListClean),
+  Repo = pg_model:new(M, ValueListClean),
   ok = save(Repo),
   {ok, Repo};
 
@@ -420,7 +420,7 @@ do_create_pk(M, false, PkValue, Attributes) ->
   VL = [{PkName, PkValue} | Attributes],
   VLClean = clean_up_record_list(M, VL),
   lager:debug("ValueList form new record = ~p", [VLClean]),
-  Repo = pg_repos:new(M, VLClean),
+  Repo = pg_model:new(M, VLClean),
   ok = save(Repo),
   {ok, Repo};
 
@@ -469,14 +469,14 @@ convert_pk(_M, PKValue, _) ->
 
 fetch_model(M, PK) when is_atom(M) ->
   {ok, Repo} = fetch(M, PK),
-  {ok, pg_repos:to_model(M, Repo)}.
+  {ok, pg_model:to(M, Repo, map)}.
 
 fetch(M, PK) when is_atom(M) ->
   Repo = read(M, PK),
   {ok, Repo}.
 
 read(M, PKValue) when is_atom(M) ->
-  TableName = pg_repos:table_name(M),
+  TableName = pg_model:name(M),
   PKType = table_config(pk_type, M),
   RealPKValue = convert_pk(M, PKValue, PKType),
   Repo = mnesia:dirty_read(TableName, RealPKValue),
@@ -484,7 +484,7 @@ read(M, PKValue) when is_atom(M) ->
 
 fetch_index_model(M, KV) when is_atom(M), is_tuple(KV) ->
   {ok, Repo} = fetch_index(M, KV),
-  {ok, pg_repos:to_model(M, Repo)}.
+  {ok, pg_model:to(M, Repo, map)}.
 
 fetch_index(M, KV) when is_atom(M), is_tuple(KV) ->
   {ok, read_index(M, KV)}.
@@ -494,7 +494,7 @@ read_index(M, {IndexName, IndexValue}) when is_atom(M), is_atom(IndexName) ->
   read_index(M, IndexName, IndexValue).
 
 read_index(M, IndexName, IndexValue) when is_atom(M), is_atom(IndexName) ->
-  TableName = pg_repos:table_name(M),
+  TableName = pg_model:name(M),
   Result = mnesia:dirty_index_read(TableName, IndexValue, IndexName),
   Result.
 
@@ -514,7 +514,7 @@ fetch_by(M, PKValue, Key) when is_atom(M), is_atom(Key) ->
     {ok, []} ->
       not_found;
     {ok, [Repo]} ->
-      pg_repos:get(M, Repo, Key)
+      pg_model:get(M, Repo, Key)
   end.
 
 -spec fetch_by_index(M, IndexValue, Key) -> Return when
@@ -528,7 +528,7 @@ fetch_by_index(M, IndexValue, Key) when is_atom(M), is_atom(Key) ->
     {ok, []} ->
       not_found;
     {ok, [Repo]} ->
-      pg_repos:get(M, Repo, Key)
+      pg_model:get(M, Repo, Key)
   end.
 %%-------------------------------------------------------------------
 %% update with pk
@@ -552,7 +552,7 @@ do_update_pk(M, [], PkValue, ValueList, update_create) ->
 do_update_pk(M, [Repo], _, ValueList, _) when is_atom(M), is_tuple(Repo), is_list(ValueList) ->
   %% found, need update
   %% VL already cleaned
-  RepoNew = pg_repos:set(M, Repo, ValueList),
+  RepoNew = pg_model:set(M, Repo, ValueList),
   lager:debug("update with Repo = ~p", [RepoNew]),
   ok = save(RepoNew),
   {ok, RepoNew}.
@@ -597,7 +597,7 @@ do_update(M, [], {IndexName, IndexValue}, ValueList, update_create) ->
 do_update(M, [Repo], _, ValueList, _) when is_atom(M), is_tuple(Repo), is_list(ValueList) ->
   %% found, need update
   CleanedValueList = clean_up_record_list(M, ValueList),
-  RepoNew = pg_repos:set(M, Repo, CleanedValueList),
+  RepoNew = pg_model:set(M, Repo, CleanedValueList),
   lager:debug("update with repo = ~p", [RepoNew]),
   ok = save(RepoNew),
   {ok, RepoNew}.
@@ -641,7 +641,7 @@ get_all(M) when is_atom(M) ->
 
 %%-------------------------------------------------------------------
 qh_table(M) when is_atom(M) ->
-  TableName = pg_repos:table_name(M),
+  TableName = pg_model:name(M),
   qlc:q([X || X <- mnesia:table(TableName)]).
 %%-------------------------------------------------------------------
 qh_probe(X) ->
@@ -655,7 +655,7 @@ qh_probe(X) ->
 %%-------------------------------------------------------------------
 qh_one_cond(M, {tuple, Pos, Key, Value} = Cond, PrevQH) when is_atom(M), is_tuple(Cond), is_atom(Key), is_integer(Pos) ->
   %% check Key must be a field of record
-  true = lists:member(Key, pg_repos:fields(M)),
+  true = lists:member(Key, pg_model:fields(M)),
 %%  QueryOption = apply(M, query_option, [Key]),
 
   F = fun
@@ -665,12 +665,12 @@ qh_one_cond(M, {tuple, Pos, Key, Value} = Cond, PrevQH) when is_atom(M), is_tupl
 
   QH = qlc:q([X || X <- PrevQH
 %%    , qh_probe(X)
-    , F(Value, pg_repos:get(M, X, Key))
+    , F(Value, pg_model:get(M, X, Key))
   ]),
   QH;
 qh_one_cond(M, {in, Key, List} = Cond, PrevQH) when is_atom(M), is_tuple(Cond), is_atom(Key), is_list(List) ->
   %% check key vlaue must with a value list
-  true = lists:member(Key, pg_repos:fields(M)),
+  true = lists:member(Key, pg_model:fields(M)),
 %%  QueryOption = apply(M, query_option, [Key]),
 
   F = fun
@@ -682,14 +682,14 @@ qh_one_cond(M, {in, Key, List} = Cond, PrevQH) when is_atom(M), is_tuple(Cond), 
 
 %%  QH = qlc:q([X || X <- PrevQH
 %%%%    , qh_probe(X)
-%%    , F(List, pg_repos:get(M, X, Key))
+%%    , F(List, pg_model:get(M, X, Key))
 %%  ]),
   QH = do_qh_one_cond(M, Key, PrevQH, F, [List]),
   QH;
 qh_one_cond(M, {between, Key, Start, End} = Cond, PrevQH)
   when is_atom(M), is_tuple(Cond), is_atom(Key) ->
   %% check key vlaue must with start/end value
-  true = lists:member(Key, pg_repos:fields(M)),
+  true = lists:member(Key, pg_model:fields(M)),
 %%  QueryOption = apply(M, query_option, [Key]),
 
   F = fun
@@ -699,20 +699,20 @@ qh_one_cond(M, {between, Key, Start, End} = Cond, PrevQH)
 
 %%  QH = qlc:q([X || X <- PrevQH
 %%%%    , qh_probe(X)
-%%    , F(Start, End, pg_repos:get(M, X, Key))
+%%    , F(Start, End, pg_model:get(M, X, Key))
 %%  ]),
   QH = do_qh_one_cond(M, Key, PrevQH, F, [Start, End]),
   QH;
 qh_one_cond(M, {Key, Value} = Cond, PrevQH) when is_atom(M), is_tuple(Cond), is_atom(Key) ->
   %% check Key must be a field of record
-  true = lists:member(Key, pg_repos:fields(M)),
+  true = lists:member(Key, pg_model:fields(M)),
 %%  QueryOption = apply(M, query_option, [Key]),
   QueryOptionConfig = table_config(query_option, M),
   QueryOption = maps:get(Key, QueryOptionConfig, full_match),
   F = fun_key_value_compare(QueryOption),
 %%  QH = qlc:q([X || X <- PrevQH,
 %%%%    qh_probe(X),
-%%    F(Value, pg_repos:get(M, X, Key))
+%%    F(Value, pg_model:get(M, X, Key))
 %%  ]),
   QH = do_qh_one_cond(M, Key, PrevQH, F, [Value]),
   QH.
@@ -725,8 +725,8 @@ do_qh_one_cond(M, Key, PrevQH, FCompare, [ValueInPost])
   ->
   QH = qlc:q([X || X <- PrevQH,
     qh_probe(X),
-%%    apply(FCompare, Values ++ [pg_repos:get(M, X, Key)])
-    FCompare(ValueInPost, pg_repos:get(M, X, Key))
+%%    apply(FCompare, Values ++ [pg_model:get(M, X, Key)])
+    FCompare(ValueInPost, pg_model:get(M, X, Key))
   ]),
   QH;
 do_qh_one_cond(M, Key, PrevQH, FCompare, [ValueInPost1, ValueInPost2])
@@ -735,8 +735,8 @@ do_qh_one_cond(M, Key, PrevQH, FCompare, [ValueInPost1, ValueInPost2])
   ->
   QH = qlc:q([X || X <- PrevQH,
     qh_probe(X),
-%%    apply(FCompare, Values ++ [pg_repos:get(M, X, Key)])
-    FCompare(ValueInPost1, ValueInPost2, pg_repos:get(M, X, Key))
+%%    apply(FCompare, Values ++ [pg_model:get(M, X, Key)])
+    FCompare(ValueInPost1, ValueInPost2, pg_model:get(M, X, Key))
   ]),
   QH.
 
@@ -797,7 +797,7 @@ fun_key_value_compare_test() ->
 %%-------------------------------------------------------------------
 query(M, Critia, Keys) when is_atom(M), is_list(Critia), is_list(Keys) ->
   L = query(M, Critia),
-  L1 = [pg_repos:get(M, Repo, Keys) || Repo <- L],
+  L1 = [pg_model:get(M, Repo, Keys) || Repo <- L],
   L1.
 
 query(M, Critia) when is_atom(M), is_list(Critia) ->
@@ -887,7 +887,8 @@ dump_to_file(M, FileName) when is_atom(M), is_binary(FileName) ->
   dump_to_file(M, binary_to_list(FileName));
 dump_to_file(M, FileName) when is_atom(M), is_list(FileName) ->
   L = get_all(M),
-  LProps = [maps:to_list(pg_repos:to_model(M, X)) || X <- L],
+%%  LProps = [maps:to_list(pg_model:to(M, X,map)) || X <- L],
+  LProps = [pg_model:to(M, X, proplist) || X <- L],
   LTerm = [io_lib:format("~tp.~n", [X]) || X <- LProps],
   file:write_file(FileName, LTerm, [append]),
   lager:debug("Dump talbe ~p to file with proplists end! ", [M]),
@@ -899,7 +900,8 @@ dump_all_to_file_safe(FileName) when is_list(FileName) ->
   [dump_to_file_safe(M, FileName) || M <- MList].
 
 repo_2_term(M, Repo) ->
-  Props = maps:to_list(pg_repos:to_model(M, Repo)),
+%%  Props = maps:to_list(pg_model:to(M, Repo)),
+  Props = pg_model:to(M, Repo, proplists),
   Term = io_lib:format("~tp.~n", [Props]),
   Term.
 
@@ -1045,8 +1047,8 @@ transfer_history_log(From, To, Options) when is_atom(From), is_atom(To), is_list
 
   FTransfer = fun
                 (FromTxnRepo, Acc) ->
-                  SourceMap = pg_repos:to_map(From, FromTxnRepo),
-                  ToTxnRepo = pg_repos:from_map(To, SourceMap),
+                  SourceMap = pg_model:to(From, FromTxnRepo, map),
+                  ToTxnRepo = pg_model:from(To, SourceMap, map),
                   ok = save(ToTxnRepo),
                   case DeleteOld of
                     true ->
@@ -1091,5 +1093,33 @@ default_transfer_date_start_test() ->
   ok.
 
 
+%%-------------------------------------------------------------------
+%% find next avail id from list, start from StartFrom, which default for 1
+
+next_id(IdList) when is_list(IdList) ->
+  next_id(lists:sort(IdList), 1).
 
 
+find_least_avail_id(_Id, {stop, IdStart}) ->
+  {stop, IdStart};
+find_least_avail_id(Id, {continue, IdStart}) when Id < IdStart ->
+  {continue, IdStart};
+find_least_avail_id(Id, {continue, IdStart}) when Id =:= IdStart ->
+  {continue, IdStart + 1};
+find_least_avail_id(Id, {continue, IdStart}) when Id > IdStart ->
+  {stop, IdStart}.
+
+next_id(IdList, StartFrom) when is_integer(StartFrom), StartFrom >= 1 ->
+  F = fun find_least_avail_id/2,
+  {_, LeastAvailId} = lists:foldl(F, {continue, StartFrom}, IdList),
+  LeastAvailId.
+
+
+next_id_test() ->
+  IdList = [1, 2, 3, 100, 101, 102, 110, 200],
+
+  ?assertEqual(next_id(IdList, 1), 4),
+  ?assertEqual(next_id(IdList, 100), 103),
+  ?assertEqual(next_id(IdList, 120), 120),
+
+  ?assertEqual(next_id([], 1), 1).
