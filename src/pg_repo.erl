@@ -392,6 +392,9 @@ do_create(M, false, {IndexName, IndexValue}, Attributes) ->
 
 do_create(_M, true, {IndexName, IndexValue}, _Attributes) ->
   %% pk already exist, duplicated
+  report_duplicated_index_value(IndexName, IndexValue).
+
+report_duplicated_index_value(IndexName, IndexValue) ->
   lager:error("Create failed, duplicated index ~p,value = ~p", [IndexName, IndexValue]),
   ErrorValueString = error_string(IndexName, IndexValue),
   ErrorValueStringBin = list_to_binary(ErrorValueString),
@@ -427,7 +430,8 @@ do_create_pk(M, false, PkValue, Attributes) ->
 do_create_pk(M, true, PkValue, _Attributes) ->
   %% pk already exist, duplicated
   PkName = table_config_pk(M),
-  do_create(undefined, true, {PkName, PkValue}, undefined).
+%%  do_create(M, true, {PkName, PkValue}, []).
+  report_duplicated_index_value(PkName, PkValue).
 
 
 
