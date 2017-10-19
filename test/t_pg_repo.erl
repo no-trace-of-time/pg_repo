@@ -25,14 +25,7 @@ cleanup(_Pid) ->
 
 setup() ->
   lager:start(),
-  Dir = "/tmp/mnesia_test",
-  os:cmd("mkdir " ++ Dir),
-  application:set_env(mnesia, dir, Dir),
-  mnesia:stop(),
-  mnesia:delete_schema([node()]),
-  mnesia:create_schema([node()]),
-
-  ok = application:start(mnesia),
+  pg_test_utils:setup(mnesia),
 
   ok.
 
