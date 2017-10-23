@@ -1033,6 +1033,53 @@ load_all_from_file(Date) when is_binary(Date) ->
 
   [F(Tbl) || Tbl <- Tables].
 
+%%-------------------------------------------------------------------
+%% use pg_mnesia_utils load mnesia from csv file
+dump_to_csv(YYYYMMDD) when is_binary(YYYYMMDD), 8 =:= byte_size(YYYYMMDD) ->
+  TableList = [table_mchants
+    , table_mcht_txn_log
+    , table_up_txn_log
+    , table_mcht_txn_acc
+    , table_ums_reconcile_result
+    , table_users
+    , table_history_mcht_txn_log
+    , table_history_up_txn_log
+    , table_history_ums_reconcile_result
+  ],
+  [dump_one_to_csv(Table, YYYYMMDD) || Table <- TableList].
+
+dump_one_to_csv(Table, Date) when is_atom(Table), is_binary(Date)->
+  BackupDir = list_to_binary(xfutils:get_path(?APP, [home, db_backup_dir])),
+  TableRaw = atom_to_binary(Table, utf8),
+  Delimiter = <<".">>,
+  TableFileName = <<BackupDir/binary, "mnesia.backup.csv.", TableRaw/binary, Delimiter/binary, Date/binary>>,
+  pg_mnesia_utils:backup(Table, TableFileName),
+  lager:info("Backup mnesia table ~p to file ~p ok.", [Table, TableFileName]),
+  ok.
+
+%%-------------------------------------------------------------------
+%% use pg_mnesia_utils dump mnesia to csv file
+load_from_csv(YYYYMMDD) when is_binary(YYYYMMDD), 8 =:= byte_size(YYYYMMDD) ->
+  TableList = [table_mchants
+    , table_mcht_txn_log
+    , table_up_txn_log
+    , table_mcht_txn_acc
+    , table_ums_reconcile_result
+    , table_users
+    , table_history_mcht_txn_log
+    , table_history_up_txn_log
+    , table_history_ums_reconcile_result
+  ],
+  [load_one_fom_csv(Table, YYYYMMDD) || Table <- TableList].
+
+load_one_fom_csv(Table, Date) when is_atom(Table), is_binary(Date)->
+  BackupDir = list_to_binary(xfutils:get_path(?APP, [home, db_backup_dir])),
+  TableRaw = atom_to_binary(Table, utf8),
+  Delimiter = <<".">>,
+  TableFileName = <<BackupDir/binary, "mnesia.backup.csv.", TableRaw/binary, Delimiter/binary, Date/binary>>,
+  pg_mnesia_utils:restore(Table, TableFileName),
+  lager:info("Restore mnesia table ~p to file ~p ok.", [Table, TableFileName]),
+  ok.
 
 %%-------------------------------------------------------------------
 %% trnasfer txn log from txn log to history log
