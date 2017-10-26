@@ -519,6 +519,13 @@ fetch_by(M, PKValue, Key) when is_atom(M), is_atom(Key) ->
       not_found;
     {ok, [Repo]} ->
       pg_model:get(M, Repo, Key)
+  end;
+fetch_by(M, PKValue, Keys) when is_atom(M), is_list(Keys) ->
+  case fetch(M, PKValue) of
+    {ok, []} ->
+      not_found;
+    {ok, [Repo]} ->
+      pg_model:get(M, Repo, Keys)
   end.
 
 -spec fetch_by_index(M, IndexValue, Key) -> Return when
