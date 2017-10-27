@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 15. 十月 2017 16:58
 %%%-------------------------------------------------------------------
--module(t_pg_repo).
+-module(pg_repo_t_pg_repo_1).
 -author("simon").
 -include_lib("eunit/include/eunit.hrl").
 
@@ -111,6 +111,9 @@ read_test_1() ->
 
   ?assertEqual([R2], pg_repo:read_index(?TEST_REPO, mcht_full_name, FullName2)),
   ?assertEqual([R2], pg_repo:read_index(?TEST_REPO, {mcht_full_name, FullName2})),
+
+  %% fetch_by
+  ?assertEqual([1,<<"sss">>],pg_repo:fetch_by(?TEST_REPO,1,[id,mcht_full_name])),
 
   ok.
 
