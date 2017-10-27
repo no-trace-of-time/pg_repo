@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 15. 十月 2017 16:58
 %%%-------------------------------------------------------------------
--module(t_pg_repo).
+-module(pg_repo_t_pg_repo_1).
 -author("simon").
 -include_lib("eunit/include/eunit.hrl").
 
