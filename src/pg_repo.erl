@@ -37,6 +37,7 @@
   , save/2
   , save/3
 
+  , update/2
   , update/3
   , update_create/3
   , update_pk/3
@@ -316,6 +317,12 @@ init(M) ->
   lists:map(F, InitData),
   ok.
 
+%%---------------------------------------------------------------
+indexs(M) when is_atom(M) ->
+  Indexes = table_config(table_indexes, M),
+  Indexes.
+
+%%---------------------------------------------------------------
 drop_index(M) when is_atom(M) ->
   %% index init
   TableName = pg_model:name(M),
@@ -572,6 +579,50 @@ do_update_pk(M, [Repo], _, ValueList, _) when is_atom(M), is_tuple(Repo), is_lis
 update_create_pk(M, PkValue, ValueList)
   when is_atom(M), is_list(ValueList) ->
   update_pk(M, PkValue, ValueList, update_create).
+%%-------------------------------------------------------------------
+%% update via proplists , find pk or index first
+-spec update(M, VL) -> RepoNew when
+  M :: atom(),
+  VL :: proplists:proplist(),
+  RepoNew :: pg_model:pg_model().
+
+update(M, VL) when is_atom(M), is_list(VL) ->
+  PK = hd(pg_model:fields(M)),
+  case proplists:get_value(PK, VL) of
+    undefined ->
+      %% PK not exists
+      %% update via index key
+      update_vl_index_key(M, VL);
+    PKValue ->
+      %% update via pk
+      update_pk(M, PKValue, VL)
+  end.
+
+update_vl_index_key(M, VL) ->
+  Indexes = indexs(M),
+  %% if not find , return {} ,with result badmatch exception
+  {IndexKey, IndexValue} = get_update_index_kv(Indexes, VL),
+
+  update(M, {IndexKey, IndexValue}, VL),
+  ok.
+
+get_update_index_kv(Indexes, VL) when is_list(Indexes), is_list(VL) ->
+  FFindFirstIndex = fun
+                      (IndexKey, {}) ->
+                        %% if not found , continue
+                        case proplists:lookup(IndexKey, VL) of
+                          none ->
+                            {};
+                          {IndexKey, IndexValue} ->
+                            {IndexKey, IndexValue}
+                        end;
+                      (_, {IndexKey, IndexValue}) ->
+                        {IndexKey, IndexValue}
+                    end,
+
+  lists:foldl(FFindFirstIndex, {}, Indexes).
+
+
 %%-------------------------------------------------------------------
 %% update with index
 update(M, {IndexName, IndexValue}, ValueList)
@@ -1055,7 +1106,7 @@ dump_to_csv(YYYYMMDD) when is_binary(YYYYMMDD), 8 =:= byte_size(YYYYMMDD) ->
   ],
   [dump_one_to_csv(Table, YYYYMMDD) || Table <- TableList].
 
-dump_one_to_csv(Table, Date) when is_atom(Table), is_binary(Date)->
+dump_one_to_csv(Table, Date) when is_atom(Table), is_binary(Date) ->
   BackupDir = list_to_binary(xfutils:get_path(?APP, [home, db_backup_dir])),
   TableRaw = atom_to_binary(Table, utf8),
   Delimiter = <<".">>,
@@ -1079,7 +1130,7 @@ load_from_csv(YYYYMMDD) when is_binary(YYYYMMDD), 8 =:= byte_size(YYYYMMDD) ->
   ],
   [load_one_fom_csv(Table, YYYYMMDD) || Table <- TableList].
 
-load_one_fom_csv(Table, Date) when is_atom(Table), is_binary(Date)->
+load_one_fom_csv(Table, Date) when is_atom(Table), is_binary(Date) ->
   BackupDir = list_to_binary(xfutils:get_path(?APP, [home, db_backup_dir])),
   TableRaw = atom_to_binary(Table, utf8),
   Delimiter = <<".">>,

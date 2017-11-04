@@ -179,6 +179,16 @@ save_test_1() ->
   [R61] = pg_repo:read(?TEST_REPO, 1),
   ?assertEqual(NewFullName5, pg_model:get(?TEST_REPO, R61, mcht_full_name)),
 
+
+  %% update-vl test
+  pg_repo:create(?TEST_REPO, {mcht_full_name, <<"ppp">>}, [{mcht_short_name, <<"qqq">>}]),
+
+  pg_repo:update(?TEST_REPO, [{id, 1}, {mcht_full_name, <<"aaavvv">>}, {aa, cc}]),
+  ?assertEqual([1, <<"aaavvv">>], pg_repo:fetch_by(?TEST_REPO, 1, [id, mcht_full_name])),
+  pg_repo:update(?TEST_REPO, [{id, 2}, {mcht_full_name, <<"bbbvvv">>}, {aa, cc}]),
+  ?assertEqual([2, <<"bbbvvv">>], pg_repo:fetch_by(?TEST_REPO, 2, [id, mcht_full_name])),
+  pg_repo:update(?TEST_REPO, [{mcht_full_name, <<"bbbvvv">>}, {mcht_short_name, <<"bbbqqq">>}, {aa, cc}]),
+  ?assertEqual([2, <<"bbbvvv">>, <<"bbbqqq">>], pg_repo:fetch_by(?TEST_REPO, 2, [id, mcht_full_name, mcht_short_name])),
   ok.
 
 delete_test_1() ->
@@ -207,3 +217,4 @@ clean_up_record_list_test_1() ->
     {mcht_short_name, <<230, 152, 147, 229, 174, 182, 229, 129, 165, 229, 186, 183>>}, {mcht_full_name, <<>>}],
 
   ?assertEqual(RecExpected, lists:reverse(pg_repo:clean_up_record_list(?TEST_REPO, Rec))).
+
