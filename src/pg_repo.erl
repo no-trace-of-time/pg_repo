@@ -603,8 +603,8 @@ update_vl_index_key(M, VL) ->
   %% if not find , return {} ,with result badmatch exception
   {IndexKey, IndexValue} = get_update_index_kv(Indexes, VL),
 
-  update(M, {IndexKey, IndexValue}, VL),
-  ok.
+  update(M, {IndexKey, IndexValue}, VL).
+%%  ok.
 
 get_update_index_kv(Indexes, VL) when is_list(Indexes), is_list(VL) ->
   FFindFirstIndex = fun
