@@ -21,6 +21,7 @@
 %% api
 -export([
   init/1
+  , indexes/1
   , data_init/0
   , drop_index/1
   , create_index/1
@@ -318,7 +319,7 @@ init(M) ->
   ok.
 
 %%---------------------------------------------------------------
-indexs(M) when is_atom(M) ->
+indexes(M) when is_atom(M) ->
   Indexes = table_config(table_indexes, M),
   Indexes.
 
@@ -599,7 +600,7 @@ update(M, VL) when is_atom(M), is_list(VL) ->
   end.
 
 update_vl_index_key(M, VL) ->
-  Indexes = indexs(M),
+  Indexes = indexes(M),
   %% if not find , return {} ,with result badmatch exception
   {IndexKey, IndexValue} = get_update_index_kv(Indexes, VL),
 
