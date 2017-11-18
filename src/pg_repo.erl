@@ -21,6 +21,7 @@
 %% api
 -export([
   init/1
+  , pk/1
   , indexes/1
   , data_init/0
   , drop_index/1
@@ -163,6 +164,7 @@ all_pks(M) ->
   PKList = mnesia:dirty_all_keys(TableName),
   PKList.
 
+%%-------------------------------------------------------------------
 table_config(Key, M) when is_atom(Key), is_atom(M) ->
 %%  Config = apply(M, table_config, []),
   Config = M: table_config(),
@@ -170,6 +172,9 @@ table_config(Key, M) when is_atom(Key), is_atom(M) ->
 
 table_config_pk(M) when is_atom(M) ->
   table_config(pk_key_name, M).
+
+pk(M) when is_atom(M) ->
+  table_config_pk(M).
 %%-------------------------------------------------------------------
 clean_up_record_list(M, List) when is_atom(M), is_list(List) ->
   RecFields = pg_model:fields(M),
