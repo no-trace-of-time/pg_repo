@@ -956,7 +956,7 @@ dump_to_file(M, FileName) when is_atom(M), is_binary(FileName) ->
 dump_to_file(M, FileName) when is_atom(M), is_list(FileName) ->
   L = get_all(M),
 %%  LProps = [maps:to_list(pg_model:to(M, X,map)) || X <- L],
-  LProps = [pg_model:to(M, X, proplist) || X <- L],
+  LProps = [pg_model:to(M, X, proplists) || X <- L],
   LTerm = [io_lib:format("~tp.~n", [X]) || X <- LProps],
   file:write_file(FileName, LTerm, [append]),
   lager:debug("Dump talbe ~p to file with proplists end! ", [M]),
